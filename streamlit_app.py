@@ -12,7 +12,6 @@ st.write("Choose the fruits you want in your custom Smoothie!")
 # Name input
 # -------------------------------
 name_on_order = st.text_input("Name on Smoothie:")
-st.write("The name on your Smoothie will be:", name_on_order)
 
 # -------------------------------
 # Snowflake Session
@@ -28,16 +27,16 @@ session = Session.builder.configs({
 }).create()
 
 # -------------------------------
-# Load fruit options
+# Load fruits
 # -------------------------------
 df = session.table("SMOOTHIES.PUBLIC.FRUIT_OPTIONS")
-st.dataframe(df, width="stretch")
-
 fruit_rows = df.select("FRUIT_NAME").collect()
 fruit_list = [row["FRUIT_NAME"] for row in fruit_rows]
 
+st.dataframe(df, width="stretch")
+
 # -------------------------------
-# Multiselect
+# Select fruits
 # -------------------------------
 ingredients_list = st.multiselect(
     "Choose up to 5 ingredients:",
@@ -45,36 +44,34 @@ ingredients_list = st.multiselect(
     max_selections=5
 )
 
-ingredients_string = ", ".join(ingredients_list) if ingredients_list else ""
-
 if ingredients_list:
-    st.write("Selected:", ingredients_string)
+    st.write("Selected:", ", ".join(ingredients_list))
 
 # -------------------------------
 # Submit Order
 # -------------------------------
 if st.button("Submit Order"):
     if not name_on_order:
-        st.error("Please enter a name")
-    elif not ingredients_string:
-        st.error("Please select ingredients")
+        st.error("Enter name")
+    elif not ingredients_list:
+        st.error("Select fruits")
     else:
         session.sql(
             "INSERT INTO SMOOTHIES.PUBLIC.ORDERS (INGREDIENTS, NAME_ON_ORDER) VALUES (?, ?)",
-            params=[ingredients_string, name_on_order]
+            params=[", ".join(ingredients_list), name_on_order]
         ).collect()
 
-        st.success(f"Your Smoothie is ordered, {name_on_order}! ✅")
+        st.success(f"Order placed for {name_on_order} ✅")
 
 # -------------------------------
-# API Function
+# API function
 # -------------------------------
 def get_fruit_data(fruit):
     url = f"https://my.smoothiefroot.com/api/fruit/{fruit}"
     try:
-        response = requests.get(url, timeout=3)
-        if response.status_code == 200:
-            return response.json()
+        res = requests.get(url, timeout=3)
+        if res.status_code == 200:
+            return res.json()
         return None
     except:
         return None
@@ -84,17 +81,14 @@ def get_fruit_data(fruit):
 # -------------------------------
 fruit_map = {
     "Blueberries": "blueberry",
-    "Elderberries": "elderberry",
     "Dragon Fruit": "dragonfruit",
     "Guava": "guava",
-    "Jackfruit": "jackfruit",
     "Apples": "apple",
-    "Mango": "mango",
     "Banana": "banana",
+    "Mango": "mango",
     "Strawberries": "strawberry",
     "Pineapple": "pineapple",
     "Kiwi": "kiwi",
-    "Lime": "lime",
     "Orange": "orange",
     "Cantaloupe": "canteloupe"
 }
@@ -107,26 +101,26 @@ st.subheader("🍉 Nutrition Info")
 if ingredients_list:
 
     combined_data = []
-    missing_fruits = []
+    missing = []
 
     for fruit in ingredients_list:
 
-        # -------------------------------
-        # STEP 1: CHECK DB FIRST
-        # -------------------------------
         api_name = fruit_map.get(fruit)
 
         if not api_name:
-            missing_fruits.append(fruit)
+            missing.append(fruit)
             continue
 
-        result = session.sql(
+        # -------------------------------
+        # STEP 1: CHECK DB
+        # -------------------------------
+        db_result = session.sql(
             "SELECT * FROM SMOOTHIES.PUBLIC.FRUIT_NUTRITION WHERE FRUIT_NAME = ?",
             params=[api_name]
         ).collect()
 
-        if result:
-            row = result[0]
+        if db_result:
+            row = db_result[0]
 
             combined_data.append({
                 "Fruit": fruit,
@@ -139,33 +133,30 @@ if ingredients_list:
             continue
 
         # -------------------------------
-        # STEP 2: CALL API (ONLY IF NEEDED)
+        # STEP 2: CALL API
         # -------------------------------
-        api_name = fruit_map.get(fruit)
-
-        if not api_name:
-            missing_fruits.append(fruit)
-            continue
-
         data = get_fruit_data(api_name)
 
         if data and "nutrition" in data:
-            nutrition = data["nutrition"]
 
-            carbs = nutrition.get("carbs")
-            fat = nutrition.get("fat")
-            protein = nutrition.get("protein")
-            sugar = nutrition.get("sugar")
+            n = data["nutrition"]
+
+            carbs = n.get("carbs")
+            fat = n.get("fat")
+            protein = n.get("protein")
+            sugar = n.get("sugar")
 
             # -------------------------------
-            # STEP 3: STORE IN DB
+            # STEP 3: INSERT INTO DB
             # -------------------------------
             session.sql(
-                """INSERT INTO SMOOTHIES.PUBLIC.FRUIT_NUTRITION 
+                """INSERT INTO SMOOTHIES.PUBLIC.FRUIT_NUTRITION
                 (FRUIT_NAME, CARBS, FAT, PROTEIN, SUGAR)
                 VALUES (?, ?, ?, ?, ?)""",
                 params=[api_name, carbs, fat, protein, sugar]
             ).collect()
+
+            st.write(f"Inserted into DB: {api_name}")  # DEBUG LINE
 
             combined_data.append({
                 "Fruit": fruit,
@@ -176,16 +167,13 @@ if ingredients_list:
             })
 
         else:
-            missing_fruits.append(fruit)
+            missing.append(fruit)
 
     # -------------------------------
-    # Show Table
+    # SHOW TABLE
     # -------------------------------
     if combined_data:
         st.dataframe(combined_data, width="stretch")
 
-    # -------------------------------
-    # Missing Data
-    # -------------------------------
-    if missing_fruits:
-        st.warning(f"❌ No nutrition data for: {', '.join(missing_fruits)}")
+    if missing:
+        st.warning(f"❌ No data for: {', '.join(missing)}")
