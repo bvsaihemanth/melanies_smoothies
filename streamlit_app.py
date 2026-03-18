@@ -31,7 +31,6 @@ session = Session.builder.configs({
 # Load fruit options
 # -------------------------------
 my_dataframe = session.table("SMOOTHIES.PUBLIC.FRUIT_OPTIONS")
-
 st.dataframe(my_dataframe, use_container_width=True)
 
 # Convert to list
@@ -72,26 +71,33 @@ if submit:
         st.success(f"Your Smoothie is ordered, {name_on_order}!", icon="✅")
 
 # -------------------------------
-# API Section (Dynamic Nutrition)
+# API Section
 # -------------------------------
 st.subheader("🍉 Nutrition Info")
 
 @st.cache_data
 def get_fruit_data(fruit):
-    url = f"https://my.smoothiefroot.com/api/fruit/{fruit.lower()}"
+    url = f"https://my.smoothiefroot.com/api/fruit/{fruit}"
     response = requests.get(url)
+
     if response.status_code == 200:
         return response.json()
     return None
 
+# Show nutrition dynamically
 if ingredients_list:
     for fruit in ingredients_list:
 
         st.markdown(f"### {fruit}")
 
-        data = get_fruit_data(fruit)
+        # 🔥 FIX: convert plural → singular
+        fruit_api_name = fruit.lower().rstrip('s')
 
-        if data:
+        data = get_fruit_data(fruit_api_name)
+
+        # 🔥 SAFE CHECK
+        if data and "nutritions" in data:
+
             nutrition = data["nutritions"]
 
             nutrition_df = {
@@ -102,4 +108,4 @@ if ingredients_list:
             st.dataframe(nutrition_df, use_container_width=True)
 
         else:
-            st.error(f"Failed to load data for {fruit}")
+            st.warning(f"No data available for {fruit}")
