@@ -45,7 +45,7 @@ fruit_rows = df.select("FRUIT_NAME").collect()
 fruit_list = [row["FRUIT_NAME"] for row in fruit_rows]
 
 # -------------------------------
-# API Function (SAFE)
+# API Function (FIXED)
 # -------------------------------
 @st.cache_data
 def get_fruit_data(fruit):
@@ -59,7 +59,7 @@ def get_fruit_data(fruit):
         return None
 
 # -------------------------------
-# Strict mapping
+# Mapping
 # -------------------------------
 fruit_map = {
     "Blueberries": "blueberry",
@@ -91,12 +91,11 @@ if mode == "Single Fruit (Badge Mode)":
         if api_name:
             data = get_fruit_data(api_name)
 
-            if data and "nutritions" in data:
-                nutrition = data["nutritions"]
+            if data and "nutrition" in data:
+                nutrition = data["nutrition"]
 
-                # EXACT FORMAT (like screenshot)
                 st.dataframe([{
-                    "carbs": nutrition.get("carbohydrates"),
+                    "carbs": nutrition.get("carbs"),
                     "fat": nutrition.get("fat"),
                     "protein": nutrition.get("protein"),
                     "sugar": nutrition.get("sugar")
@@ -109,7 +108,7 @@ if mode == "Single Fruit (Badge Mode)":
             st.warning("Fruit not supported by API")
 
 # =========================================================
-# 🔵 MODE 2: MULTIPLE FRUITS (YOUR ADVANCED VERSION)
+# 🔵 MODE 2: MULTIPLE FRUITS (ADVANCED)
 # =========================================================
 else:
 
@@ -157,10 +156,10 @@ else:
 
             data = get_fruit_data(api_name)
 
-            if data and "nutritions" in data:
+            if data and "nutrition" in data:
                 st.markdown(f"### {fruit}")
 
-                nutrition = data["nutritions"]
+                nutrition = data["nutrition"]
 
                 st.dataframe({
                     "Nutrient": list(nutrition.keys()),
