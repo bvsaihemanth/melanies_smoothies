@@ -114,9 +114,15 @@ if ingredients_list:
         # -------------------------------
         # STEP 1: CHECK DB FIRST
         # -------------------------------
+        api_name = fruit_map.get(fruit)
+
+        if not api_name:
+            missing_fruits.append(fruit)
+            continue
+
         result = session.sql(
             "SELECT * FROM SMOOTHIES.PUBLIC.FRUIT_NUTRITION WHERE FRUIT_NAME = ?",
-            params=[fruit]
+            params=[api_name]
         ).collect()
 
         if result:
@@ -158,7 +164,7 @@ if ingredients_list:
                 """INSERT INTO SMOOTHIES.PUBLIC.FRUIT_NUTRITION 
                 (FRUIT_NAME, CARBS, FAT, PROTEIN, SUGAR)
                 VALUES (?, ?, ?, ?, ?)""",
-                params=[fruit, carbs, fat, protein, sugar]
+                params=[api_name, carbs, fat, protein, sugar]
             ).collect()
 
             combined_data.append({
