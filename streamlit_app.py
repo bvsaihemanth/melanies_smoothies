@@ -105,7 +105,13 @@ if ingredients_list:
 
     for fruit in ingredients_list:
 
-        api_name = fruit_map.get(fruit)
+        df = session.table("SMOOTHIES.PUBLIC.FRUIT_OPTIONS") \
+            .select("FRUIT_NAME", "SEARCH_ON") \
+            .collect()
+
+        fruit_search_map = {row["FRUIT_NAME"]: row["SEARCH_ON"] for row in df}
+
+        api_name = fruit_search_map.get(fruit)
 
         if not api_name:
             missing.append(fruit)
