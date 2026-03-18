@@ -84,18 +84,33 @@ def get_fruit_data(fruit):
         return response.json()
     return None
 
+# 🔥 Proper mapping (NO GUESSWORK)
+fruit_map = {
+    "Blueberries": "blueberry",
+    "Elderberries": "elderberry",
+    "Dragon Fruit": "dragonfruit",
+    "Guava": "guava",
+    "Jackfruit": "jackfruit",
+    "Apples": "apple",
+    "Mango": "mango",
+    "Banana": "banana",
+    "Strawberries": "strawberry",
+    "Pineapple": "pineapple",
+    "Kiwi": "kiwi",
+    "Lime": "lime"
+}
+
 # Show nutrition dynamically
 if ingredients_list:
     for fruit in ingredients_list:
 
         st.markdown(f"### {fruit}")
 
-        # 🔥 FIX: convert plural → singular
-        fruit_api_name = fruit.lower().rstrip('s')
+        # ✅ Use mapping
+        fruit_api_name = fruit_map.get(fruit, fruit.lower())
 
         data = get_fruit_data(fruit_api_name)
 
-        # 🔥 SAFE CHECK
         if data and "nutritions" in data:
 
             nutrition = data["nutritions"]
