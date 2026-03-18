@@ -1,6 +1,5 @@
 # Import python packages
 import streamlit as st
-from snowflake.snowpark.context import get_active_session
 from snowflake.snowpark.functions import col
 
 # Title
@@ -11,8 +10,9 @@ st.write("Choose the fruits you want in your custom Smoothie!")
 name_on_order = st.text_input('Name on Smoothie:')
 st.write('The name on your Smoothie will be:', name_on_order)
 
-# Get Snowflake session
-session = get_active_session()
+# ✅ Snowflake connection (SniS)
+cnx = st.connection("snowflake")
+session = cnx.session()
 
 # Load fruit table
 my_dataframe = session.table("smoothies.public.fruit_options")
@@ -24,32 +24,39 @@ st.dataframe(data=my_dataframe, use_container_width=True)
 fruit_rows = my_dataframe.select("FRUIT_NAME").collect()
 fruit_list = [row["FRUIT_NAME"] for row in fruit_rows]
 
-# Multiselect
+# ✅ Multiselect with limit
 ingredients_list = st.multiselect(
     'Choose up to 5 ingredients:',
-    fruit_list
+    fruit_list,
+    max_selections=5
 )
 
 # Build ingredients string
 ingredients_string = ''
 if ingredients_list:
-    for fruit_chosen in ingredients_list:
-        ingredients_string += fruit_chosen + ' '
-
-    st.write(ingredients_string)
-
-# 🔥 Build SQL (UPDATED with name)
-my_insert_stmt = """ insert into smoothies.public.orders(ingredients, name_on_order)
-                    values ('""" + ingredients_string + """', '""" + name_on_order + """')"""
-
-# Show SQL (for debugging as per lab)
-st.write(my_insert_stmt)
+    ingredients_string = ' '.join(ingredients_list)
+    st.write("Selected Ingredients:", ingredients_string)
 
 # Button
 time_to_insert = st.button('Submit Order')
 
-# Insert ONLY on button click
+# ✅ Safe Insert with validation
 if time_to_insert:
-    if ingredients_string:
-        session.sql(my_insert_stmt).collect()
-        st.success('Your Smoothie is ordered, ' + name_on_order + '!', icon="✅")
+
+    if not name_on_order:
+        st.error("Please enter a name")
+    
+    elif not ingredients_string:
+        st.error("Please select at least one ingredient")
+
+    else:
+        try:
+            session.sql(
+                "INSERT INTO smoothies.public.orders (ingredients, name_on_order) VALUES (?, ?)",
+                params=[ingredients_string, name_on_order]
+            ).collect()
+
+            st.success(f"Your Smoothie is ordered, {name_on_order}!", icon="✅")
+
+        except Exception as e:
+            st.error(f"Error placing order: {e}")
