@@ -9,14 +9,6 @@ st.title("🥤 Customize Your Smoothie!")
 st.write("Choose the fruits you want in your custom Smoothie!")
 
 # -------------------------------
-# Mode Toggle
-# -------------------------------
-mode = st.radio(
-    "Select Mode:",
-    ["Single Fruit (Badge Mode)", "Multiple Fruits (Advanced Mode)"]
-)
-
-# -------------------------------
 # Name input
 # -------------------------------
 name_on_order = st.text_input("Name on Smoothie:")
@@ -45,7 +37,37 @@ fruit_rows = df.select("FRUIT_NAME").collect()
 fruit_list = [row["FRUIT_NAME"] for row in fruit_rows]
 
 # -------------------------------
-# API Function (FIXED)
+# Multiselect
+# -------------------------------
+ingredients_list = st.multiselect(
+    "Choose up to 5 ingredients:",
+    fruit_list,
+    max_selections=5
+)
+
+ingredients_string = ", ".join(ingredients_list) if ingredients_list else ""
+
+if ingredients_list:
+    st.write("Selected:", ingredients_string)
+
+# -------------------------------
+# Submit Order
+# -------------------------------
+if st.button("Submit Order"):
+    if not name_on_order:
+        st.error("Please enter a name")
+    elif not ingredients_string:
+        st.error("Please select ingredients")
+    else:
+        session.sql(
+            "INSERT INTO SMOOTHIES.PUBLIC.ORDERS (INGREDIENTS, NAME_ON_ORDER) VALUES (?, ?)",
+            params=[ingredients_string, name_on_order]
+        ).collect()
+
+        st.success(f"Your Smoothie is ordered, {name_on_order}! ✅")
+
+# -------------------------------
+# API Function (SAFE + CACHED)
 # -------------------------------
 @st.cache_data
 def get_fruit_data(fruit):
@@ -78,96 +100,48 @@ fruit_map = {
     "Cantaloupe": "canteloupe"
 }
 
-# =========================================================
-# 🟢 MODE 1: SINGLE FRUIT (BADGE MODE)
-# =========================================================
-if mode == "Single Fruit (Badge Mode)":
+# -------------------------------
+# Nutrition Section (COMBINED)
+# -------------------------------
+st.subheader("🍉 Nutrition Info")
 
-    fruit_choice = st.selectbox("Choose a fruit:", fruit_list)
+if ingredients_list:
 
-    if fruit_choice:
-        api_name = fruit_map.get(fruit_choice)
+    combined_data = []
+    missing_fruits = []
 
-        if api_name:
-            data = get_fruit_data(api_name)
+    for fruit in ingredients_list:
+        api_name = fruit_map.get(fruit)
 
-            if data and "nutrition" in data:
-                nutrition = data["nutrition"]
+        # ❌ Not mapped
+        if not api_name:
+            missing_fruits.append(fruit)
+            continue
 
-                st.dataframe([{
-                    "carbs": nutrition.get("carbs"),
-                    "fat": nutrition.get("fat"),
-                    "protein": nutrition.get("protein"),
-                    "sugar": nutrition.get("sugar")
-                }], width="stretch")
+        data = get_fruit_data(api_name)
 
-            else:
-                st.warning("No nutrition data available")
+        # ✅ Valid response
+        if data and "nutrition" in data:
+            nutrition = data["nutrition"]
 
+            combined_data.append({
+                "Fruit": fruit,
+                "Carbs": nutrition.get("carbs"),
+                "Fat": nutrition.get("fat"),
+                "Protein": nutrition.get("protein"),
+                "Sugar": nutrition.get("sugar")
+            })
         else:
-            st.warning("Fruit not supported by API")
-
-# =========================================================
-# 🔵 MODE 2: MULTIPLE FRUITS (ADVANCED)
-# =========================================================
-else:
-
-    ingredients_list = st.multiselect(
-        "Choose up to 5 ingredients:",
-        fruit_list,
-        max_selections=5
-    )
-
-    ingredients_string = ", ".join(ingredients_list) if ingredients_list else ""
-
-    if ingredients_list:
-        st.write("Selected:", ingredients_string)
+            missing_fruits.append(fruit)
 
     # -------------------------------
-    # Submit Order
+    # Show combined table
     # -------------------------------
-    if st.button("Submit Order"):
-        if not name_on_order:
-            st.error("Please enter a name")
-        elif not ingredients_string:
-            st.error("Please select ingredients")
-        else:
-            session.sql(
-                "INSERT INTO SMOOTHIES.PUBLIC.ORDERS (INGREDIENTS, NAME_ON_ORDER) VALUES (?, ?)",
-                params=[ingredients_string, name_on_order]
-            ).collect()
-
-            st.success(f"Your Smoothie is ordered, {name_on_order}! ✅")
+    if combined_data:
+        st.dataframe(combined_data, width="stretch")
 
     # -------------------------------
-    # Nutrition Section
+    # Show missing fruits
     # -------------------------------
-    st.subheader("🍉 Nutrition Info")
-
-    if ingredients_list:
-        missing_fruits = []
-
-        for fruit in ingredients_list:
-            api_name = fruit_map.get(fruit)
-
-            if not api_name:
-                missing_fruits.append(fruit)
-                continue
-
-            data = get_fruit_data(api_name)
-
-            if data and "nutrition" in data:
-                st.markdown(f"### {fruit}")
-
-                nutrition = data["nutrition"]
-
-                st.dataframe({
-                    "Nutrient": list(nutrition.keys()),
-                    "Value": list(nutrition.values())
-                })
-
-            else:
-                missing_fruits.append(fruit)
-
-        if missing_fruits:
-            st.warning(f"❌ No nutrition data for: {', '.join(missing_fruits)}")
+    if missing_fruits:
+        st.warning(f"❌ No nutrition data for: {', '.join(missing_fruits)}")
